@@ -12,4 +12,11 @@ langchain4j:
       embedding-model:
         model-name: text-embedding-v3
         api-key: <You API Key here>
+      streaming-chat-model:
+        model-name: qwen-plus
+        api-key: <You API Key here>
+server:
+  port: 8080
+  servlet:
+    context-path: /api
 

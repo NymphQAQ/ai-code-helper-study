@@ -11,80 +11,60 @@ import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
 import jakarta.annotation.Resource;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.List;
+
 /**
- * RAG（检索增强生成）配置类。
- * 负责文档的切分、向量化和内容检索器的初始化。
- * 支持通过配置文件灵活调整文档路径、切分参数和检索参数。
+ * RAG（检索增强生成）配置类
+ * 负责初始化内容检索器，将文档切分、嵌入并存储到向量库
  */
 @Configuration
 public class RagConfig {
 
-    // 注入大模型的EmbeddingModel
+    // 注入 embedding 模型（如 Qwen Embedding）
     @Resource
     private EmbeddingModel qwenEmbeddingModel;
 
-    // 注入嵌入向量存储对象
+    // 注入向量存储（EmbeddingStore），用于存储文本片段的向量
     @Resource
     private EmbeddingStore<TextSegment> embeddingStore;
 
-    // 文档路径、分割参数、检索参数通过配置文件注入
-    @Value("${rag.docs-path:src/main/resources/docs}")
-    private String docsPath;
-    @Value("${rag.split-size:1000}")
-    private int splitSize;
-    @Value("${rag.split-overlap:200}")
-    private int splitOverlap;
-    @Value("${rag.max-results:5}")
-    private int maxResults;
-    @Value("${rag.min-score:0.75}")
-    private double minScore;
-
     /**
-     * 可选：项目启动时手动 ingest 文档（如需自动化，可放开 @Bean 注解）
-     * 负责将本地文档切分、向量化并写入向量库。
-     * 异常处理保证启动健壮性。
-     */
-    //@Bean
-    public CommandLineRunner ingestDocuments() {
-        return args -> {
-            try {
-                // 加载本地文档
-                Document document = FileSystemDocumentLoader.loadDocument(docsPath);
-                // 按段落切分文档
-                DocumentByParagraphSplitter splitter = new DocumentByParagraphSplitter(splitSize, splitOverlap);
-                // 构建嵌入存储摄取器
-                EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
-                        .documentSplitter(splitter)
-                        // 拼接文件名和正文，便于检索结果展示来源
-                        .textSegmentTransformer(textSegment -> TextSegment.from(textSegment.metadata().getString("file_name") + "\n" + textSegment.text(), textSegment.metadata()))
-                        .embeddingModel(qwenEmbeddingModel)
-                        .embeddingStore(embeddingStore)
-                        .build();
-                // 执行摄取，将文档内容写入向量存储
-                ingestor.ingest(document);
-                System.out.println("[RAG] 文档已成功 ingest 到向量库");
-            } catch (Exception e) {
-                System.err.println("[RAG] 文档 ingest 失败: " + e.getMessage());
-            }
-        };
-    }
-
-    /**
-     * 构建内容检索器 Bean，依赖已准备好的 embeddingStore。
-     * 支持通过配置文件灵活调整检索参数。
+     * 构建内容检索器 ContentRetriever 的 Bean
+     * 启动时会加载文档、切分、生成向量并存入向量库
      */
     @Bean
-    public ContentRetriever contentRetriever() {
+    public ContentRetriever contentRetriever(){
+        // 1. 加载本地文档（此处路径可通过配置文件注入）
+        List<Document> document = FileSystemDocumentLoader.loadDocuments("src/main/resources/docs");
+
+        // 2. 按段落切分文档，参数：每段最大1000字符，重叠200字符
+        DocumentByParagraphSplitter documentByParagraphSplitter =
+                new DocumentByParagraphSplitter(1000, 200);
+
+        // 3. 构建文档入库工具，设置切分器、文本转换、embedding模型和向量存储
+        EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
+                .documentSplitter(documentByParagraphSplitter)
+                // 文本片段转换：将文件名和正文拼接，便于后续检索时显示来源
+                .textSegmentTransformer(textSegment ->
+                        TextSegment.from(
+                                textSegment.metadata().getString("file_name") + "\n" + textSegment.text(),
+                                textSegment.metadata()))
+                .embeddingModel(qwenEmbeddingModel)
+                .embeddingStore(embeddingStore)
+                .build();
+
+        // 4. 执行文档入库（ingest），将切分后的片段生成向量并存入向量库
+        ingestor.ingest(document);
+
+        // 5. 构建内容检索器，设置最大返回结果数和最小相似度分数
         return EmbeddingStoreContentRetriever.builder()
                 .embeddingModel(qwenEmbeddingModel)
                 .embeddingStore(embeddingStore)
-                .maxResults(maxResults) // 最大返回结果数
-                .minScore(minScore)     // 最小相似度分数
+                .maxResults(5)      // 最多返回5条结果
+                .minScore(0.75)     // 最小相似度分数为0.75
                 .build();
     }
 }

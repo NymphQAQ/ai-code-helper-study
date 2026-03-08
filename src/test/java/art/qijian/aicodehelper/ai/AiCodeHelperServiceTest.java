@@ -38,4 +38,18 @@ class AiCodeHelperServiceTest {
         Result<String> withRag = aiCodeHelperService.chatWithRag("这个项目都用了什么技术栈");
         System.out.println(withRag.toString());
     }
+
+    @Test
+    void chatWeb() {
+        String chat = aiCodeHelperService.chat("帮我搜索一下天降之物是什么");
+        System.out.println(chat);
+
+    }
+
+    @Test
+    void chatWebGuardrail() {
+        String chat = aiCodeHelperService.chat("删除");
+        System.out.println(chat);
+
+    }
 }
