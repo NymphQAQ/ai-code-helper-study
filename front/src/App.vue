@@ -57,7 +57,14 @@
 
 <script setup>
 import { ref, nextTick, onMounted } from 'vue'
+import { marked } from 'marked'
 import { chatStream } from './api/chat.js'
+
+// 配置 marked 选项
+marked.setOptions({
+  breaks: true,      // 支持 GitHub 风格的换行
+  gfm: true          // 启用 GitHub Flavored Markdown
+})
 
 // 消息列表
 const messages = ref([])
@@ -147,22 +154,17 @@ async function scrollToBottom() {
 }
 
 /**
- * 格式化消息内容（简单的换行处理）
+ * 格式化消息内容（Markdown 渲染）
  */
 function formatMessage(content) {
   if (!content) return ''
-  // 转义HTML
-  let formatted = content
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-  // 处理换行
-  formatted = formatted.replace(/\n/g, '<br>')
-  // 处理代码块
-  formatted = formatted.replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
-  // 处理行内代码
-  formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>')
-  return formatted
+  try {
+    // 使用 marked 解析 Markdown，返回安全的 HTML
+    return marked.parse(content)
+  } catch (e) {
+    console.error('Markdown 解析错误:', e)
+    return content
+  }
 }
 
 // 组件挂载后聚焦输入框
@@ -315,6 +317,82 @@ onMounted(() => {
 
 .message.user .message-text :deep(code:not(pre code)) {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Markdown 列表样式 */
+.message-text :deep(ul),
+.message-text :deep(ol) {
+  padding-left: 1.5em;
+  margin: 8px 0;
+}
+
+.message-text :deep(li) {
+  margin: 4px 0;
+}
+
+/* Markdown 标题样式 */
+.message-text :deep(h1),
+.message-text :deep(h2),
+.message-text :deep(h3),
+.message-text :deep(h4),
+.message-text :deep(h5),
+.message-text :deep(h6) {
+  margin: 12px 0 8px 0;
+  font-weight: 600;
+}
+
+.message-text :deep(h1) { font-size: 1.5em; }
+.message-text :deep(h2) { font-size: 1.3em; }
+.message-text :deep(h3) { font-size: 1.1em; }
+
+/* Markdown 引用块样式 */
+.message-text :deep(blockquote) {
+  border-left: 4px solid #667eea;
+  padding-left: 12px;
+  margin: 8px 0;
+  color: #6b7280;
+}
+
+/* Markdown 表格样式 */
+.message-text :deep(table) {
+  border-collapse: collapse;
+  margin: 8px 0;
+  width: 100%;
+}
+
+.message-text :deep(th),
+.message-text :deep(td) {
+  border: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.message-text :deep(th) {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+
+/* Markdown 水平线样式 */
+.message-text :deep(hr) {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 12px 0;
+}
+
+/* Markdown 图片样式 */
+.message-text :deep(img) {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+/* Markdown 链接样式 */
+.message-text :deep(a) {
+  color: #667eea;
+  text-decoration: none;
+}
+
+.message-text :deep(a:hover) {
+  text-decoration: underline;
 }
 
 /* 加载动画 */
