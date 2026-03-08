@@ -12,9 +12,4 @@ langchain4j:
       embedding-model:
         model-name: text-embedding-v3
         api-key: <You API Key here>
-rag:
-  docs-path: src/main/resources/docs
-  split-size: 1000
-  split-overlap: 200
-  max-results: 5
-  min-score: 0.75
+
